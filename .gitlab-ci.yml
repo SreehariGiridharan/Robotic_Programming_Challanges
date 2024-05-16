@@ -1,0 +1,50 @@
+variables:
+  SSH_PRIVATE_KEY: $SSH_PRIVATE_KEY
+  SSH_KNOWN_HOSTS: $SSH_KNOWN_HOSTS
+
+build-webpages:
+  image: python
+  stage: build
+  script:
+  - apt update
+  - apt install -y enchant-2
+  - pip install -U pip
+  - pip install -U -r python-requirements.txt
+  - make html
+  artifacts:
+    paths:
+    - _build/html
+
+build-pdf:
+  image: sphinxdoc/sphinx-latexpdf
+  stage: build
+  script:
+  - apt update
+  - apt install -y enchant-2
+  - pip install -U pip
+  - pip install -U -r python-requirements.txt
+  - make latexpdf
+  artifacts:
+    paths:
+    - _build/latex/*pdf
+
+
+
+deploy-webpages:
+  image: python
+  stage: deploy
+  # from https://docs.gitlab.com/ee/ci/ssh_keys/
+  before_script:
+    - if [[ ! -v SSH_PRIVATE_KEY ]]; then echo SSH_PRIVATE_KEY not set.; exit 1; fi
+    - if [[ ! -v SSH_KNOWN_HOSTS ]]; then echo SSH_KNOWN_HOSTS not set.; exit 1; fi
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$SSH_KNOWN_HOSTS" >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+  - ssh $GITLAB_USER_LOGIN@joan.th-deg.de -- rm -rf public_html/$CI_PROJECT_NAME
+  - scp -r _build/html $GITLAB_USER_LOGIN@joan.th-deg.de:public_html/$CI_PROJECT_NAME
+  except:
+    - merge_requests

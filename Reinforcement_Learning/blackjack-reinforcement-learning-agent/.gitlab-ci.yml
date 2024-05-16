@@ -1,0 +1,14 @@
+image: python
+
+run:
+  stage: test
+  script:
+    - apt update
+    - apt install -y python3-pip
+    - pip install -U -r requirements.txt
+    - result=$(python3 benchmark.py)
+    - mrps=$(echo $result | cut -d ' ' -f 1)
+    - wr=$(echo $result | cut -d ' ' -f 2)
+    - echo $mrps
+    - echo $wr
+    - curl -d "username=$GITLAB_USER_LOGIN&mean_reward_per_step=$mrps&win_ratio=$wr&url=$CI_JOB_URL" https://joan.th-deg.de/ranking-dashboard
